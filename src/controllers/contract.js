@@ -1,138 +1,118 @@
-const pool = require("../../config/mySql");
+const contractQueries = require('../queries/contract');
+const { bucket } = require('../../config/firestore');
 
-// Fetch active contracts (where the current date is between start_date and end_date)
-const getActiveContracts = async (req, res) => {
+const getContractsByUser = async (req, res) => {
   try {
-    const [contracts] = await pool.query(`
-      SELECT 
-        c.id, 
-        c.job_offer_id, 
-        c.interim_collaborator_id, 
-        c.contract_path, 
-        c.signed, 
-        c.start_date,
-        c.end_date,
-        j.location AS job_location,
-        j.salary AS job_salary,
-        j.duration AS job_duration,
-        u.firstName AS collaborator_firstName,
-        u.lastName AS collaborator_lastName,
-        u.email AS collaborator_email
-      FROM contracts c
-      JOIN job_offers j ON c.job_offer_id = j.id
-      JOIN users u ON c.interim_collaborator_id = u.id
-      WHERE CURDATE() BETWEEN c.start_date AND c.end_date
-    `);
-    return res.status(200).json(contracts);
+    // Use req.user.id from mock middleware
+    const contracts = await contractQueries.getContractsByUser(req.user.id);
+    
+    res.status(200).json({
+      success: true,
+      data: contracts
+    });
   } catch (error) {
-    console.error("Error in getActiveContracts:", error);
-    return res.status(500).json({ message: "Internal Server Error", error: error.message });
+    console.error("Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch contracts"
+    });
   }
 };
-
-// Fetch contract history (where the current date is after the end_date)
-const getContractHistory = async (req, res) => {
-  try {
-    const [contracts] = await pool.query(`
-      SELECT 
-        c.id, 
-        c.job_offer_id, 
-        c.interim_collaborator_id, 
-        c.contract_path, 
-        c.signed, 
-        c.start_date,
-        c.end_date,
-        j.location AS job_location,
-        j.salary AS job_salary,
-        j.duration AS job_duration,
-        u.firstName AS collaborator_firstName,
-        u.lastName AS collaborator_lastName,
-        u.email AS collaborator_email
-      FROM contracts c
-      JOIN job_offers j ON c.job_offer_id = j.id
-      JOIN users u ON c.interim_collaborator_id = u.id
-      WHERE CURDATE() > c.end_date
-    `);
-    return res.status(200).json(contracts);
-  } catch (error) {
-    console.error("Error in getContractHistory:", error);
-    return res.status(500).json({ message: "Internal Server Error", error: error.message });
-  }
-};
-
-// Fetch contract details by ID
 const getContractDetails = async (req, res) => {
   try {
-    const contractId = req.params.id;
-    const [contract] = await pool.query(`
-      SELECT 
-        c.id, 
-        c.job_offer_id, 
-        c.interim_collaborator_id, 
-        c.contract_path, 
-        c.signed, 
-        c.start_date,
-        c.end_date,
-        j.location AS job_location,
-        j.salary AS job_salary,
-        j.duration AS job_duration,
-        u.firstName AS collaborator_firstName,
-        u.lastName AS collaborator_lastName,
-        u.email AS collaborator_email
-      FROM contracts c
-      JOIN job_offers j ON c.job_offer_id = j.id
-      JOIN users u ON c.interim_collaborator_id = u.id
-      WHERE c.id = ?
-    `, [contractId]);
-
-    if (contract.length === 0) {
-      return res.status(404).json({ message: "Contract not found" });
+    const contract = await contractQueries.getContractDetails(req.params.id);
+    
+    if (!contract) {
+      return res.status(404).json({
+        success: false,
+        message: "Contract not found"
+      });
     }
 
-    return res.status(200).json(contract[0]);
+    res.status(200).json({
+      success: true,
+      data: contract
+    });
   } catch (error) {
     console.error("Error in getContractDetails:", error);
-    return res.status(500).json({ message: "Internal Server Error", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch contract details",
+      error: error.message
+    });
   }
 };
 
-// Sign a contract
 const signContract = async (req, res) => {
   try {
-    const contractId = req.params.id;
+    const success = await contractQueries.signContract(
+      req.params.id, 
+      req.user.id
+    );
+    
+    if (!success) {
+      return res.status(400).json({
+        success: false,
+        message: "Contract could not be signed (may already be signed or doesn't exist)"
+      });
+    }
 
-    // Update the contract status to signed
-    await pool.query("UPDATE contracts SET signed = TRUE WHERE id = ?", [contractId]);
-
-    return res.status(200).json({ message: "Contract signed successfully" });
+    // Get updated contract
+    const updatedContract = await contractQueries.getContractDetails(
+      req.params.id, 
+      req.user.id
+    );
+    
+    res.status(200).json({
+      success: true,
+      message: "Contract signed successfully",
+      data: updatedContract
+    });
+    
   } catch (error) {
-    console.error("Error in signContract:", error);
-    return res.status(500).json({ message: "Internal Server Error", error: error.message });
+    console.error("Error signing contract:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to sign contract",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
-// Download contract file
 const downloadContract = async (req, res) => {
   try {
-    const contractId = req.params.id;
-    const [contract] = await pool.query("SELECT contract_path FROM contracts WHERE id = ?", [contractId]);
-
-    if (contract.length === 0 || !contract[0].contract_path) {
-      return res.status(404).json({ message: "Contract file not found" });
+    const contractPath = await contractQueries.getContractDownloadPath(req.params.id);
+    
+    if (!contractPath) {
+      return res.status(404).json({
+        success: false,
+        message: "Contract file not found"
+      });
     }
 
-    const filePath = contract[0].contract_path;
-    res.download(filePath); // Serve the file for download
+    const file = bucket.file(contractPath);
+    const [url] = await file.getSignedUrl({
+      action: 'read',
+      expires: Date.now() + 15 * 60 * 1000 // 15 minutes
+    });
+
+    res.status(200).json({
+      success: true,
+      data: { downloadUrl: url }
+    });
   } catch (error) {
     console.error("Error in downloadContract:", error);
-    return res.status(500).json({ message: "Internal Server Error", error: error.message });
+    res.status(500).json({
+      success: false,
+      message: "Failed to generate download URL",
+      error: error.message
+    });
   }
 };
 
 module.exports = {
-  getActiveContracts,
-  getContractHistory,
+  getContractsByUser,
   getContractDetails,
   signContract,
-  downloadContract,
+  downloadContract
 };

@@ -1,21 +1,14 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const multer = require("multer");
-const upload = multer({ dest: "uploads/" }); // Temporarily store files in an "uploads" folder
+const contractController = require('../controllers/contract');
+const { mockAuthenticate } = require('../middleware/auth'); // Use mock instead
 
-const {
-  getActiveContracts,
-  getContractHistory,
-  getContractDetails,
-  signContract,
-  downloadContract,
-} = require("../controllers/contract");
+// Apply mock auth to all routes
+router.use(mockAuthenticate);
 
-// Define routes
-router.get("/active", getActiveContracts);
-router.get("/history", getContractHistory);
-router.get("/:id", getContractDetails);
-router.put("/:id/sign", upload.single("signedDocument"), signContract); // Add file upload middleware
-router.get("/:id/download", downloadContract);
+router.get('/', contractController.getContractsByUser);
+router.get('/:id', contractController.getContractDetails);
+router.post('/:id/sign', contractController.signContract);
+router.get('/:id/download', contractController.downloadContract);
 
 module.exports = router;

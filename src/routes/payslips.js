@@ -1,68 +1,14 @@
-const express = require("express");
-const { getPayslipsHandler, getPayslipDetailsHandler } = require("../controllers/payslips");
+const express = require('express');
 const router = express.Router();
+const {
+  getPayslipsHandler,
+  getPayslipDetailsHandler,
+  downloadPayslipHandler
+} = require('../controllers/payslips');
 
-/**
- * @swagger
- * tags:
- *   name: Payslips
- *   description: Payslip management
- */
-
-/**
- * @swagger
- * /payslips/user/{userId}:
- *   get:
- *     summary: Get payslips for a user
- *     tags: [Payslips]
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: List of payslips
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Payslip'
- */
-router.get("/user/:userId", getPayslipsHandler);
-
-/**
- * @swagger
- * /payslips/{id}:
- *   get:
- *     summary: Get payslip details
- *     tags: [Payslips]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Payslip details
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                 data:
- *                   $ref: '#/components/schemas/PayslipDetails'
- */
-router.get("/:id", getPayslipDetailsHandler);
+// Make sure these routes match what you're calling from Postman
+router.get('/user/:userId', getPayslipsHandler);
+router.get('/:id', getPayslipDetailsHandler);
+router.get('/download/:id', downloadPayslipHandler);  // This is the endpoint you're testing
 
 module.exports = router;
