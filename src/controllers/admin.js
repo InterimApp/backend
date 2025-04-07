@@ -1,4 +1,3 @@
-const { getUsers,  } = require("../queries/admin");
 const { deleteUser } = require("../queries/admin");
 const { getDashboardData } = require('../queries/admin');
 const { getRecruitmentRequests } = require('../queries/admin');
@@ -8,27 +7,43 @@ const { getJobOffersAndApplicantsService } = require('../services/admin');
 const { updateApplicantStatus } = require('../queries/admin');
 const { getComplianceReportsService } = require("../services/admin");
 const { getAcceptedContracts } = require("../queries/admin");
+const { getAllUsersService, getUsersByTagService } = require("../queries/admin");
 
-
-const getUserHandler = async (req, res) => {
-    try {
-        const { name } = req.query;
-
-        const users = await getUsers(name);
-
-        if (!users || users.length === 0) {
-            return res.status(404).json({ message: "No users found matching the criteria" });
-        }
-
-        return res.status(200).json({
-            message: "Users fetched successfully",
-            users
-        });
-    } catch (error) {
-        console.error("Error in getUserHandler:", error);
-        return res.status(500).json({ message: "Internal Server Error", error: error.message });
+const getAllUsersHandler = async (req, res) => {
+  try {
+    const users = await getAllUsersService();
+    if (!users || users.length === 0) {
+      return res.status(404).json({ message: "No users found." });
     }
+    return res.status(200).json({ message: "Users fetched successfully", users });
+  } catch (error) {
+    console.error("Error in getAllUsersHandler:", error);
+    return res.status(500).json({ message: "Internal Server Error", error: error.message });
+  }
 };
+
+const getUsersByTagHandler = async (req, res) => {
+  try {
+    const { tag } = req.query;
+
+    if (!tag || !["user", "company"].includes(tag)) {
+      return res.status(400).json({ message: "Invalid tag. Use 'user' or 'company'." });
+    }
+
+    const users = await getUsersByTagService(tag);
+
+    if (!users || users.length === 0) {
+      return res.status(404).json({ message: "No users found for the given tag." });
+    }
+
+    return res.status(200).json({ message: "Users fetched successfully", users });
+  } catch (error) {
+    console.error("Error in getUsersByTagHandler:", error);
+    return res.status(500).json({ message: "Internal Server Error", error: error.message });
+  }
+};
+
+
 
 // Handler to remove user by name
 const removeUserHandler = async (req, res) => {
@@ -180,13 +195,16 @@ const filterApplicantsHandler = async (req, res) => {
 
 async function getComplianceReportsHandler(req, res) {
     try {
-        console.log("Fetching compliance reports...");
-        const reports = await getComplianceReportsService();
+        // Call the service function to fetch the compliance reports
+        const reports = await fetchComplianceReports();
+    
+        // Return the data to the client
         res.status(200).json(reports);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-}
+      } catch (error) {
+        console.error("Error in fetching compliance reports:", error);
+        res.status(500).json({ message: "Internal Server Error" });
+      }
+    };
 
 
 
@@ -200,4 +218,17 @@ const getContractsHandler = async (req, res) => {
 };
 
 
-module.exports = { getUserHandler,removeUserHandler,getDashboardAdminHandler, getJobPostingRequestAdminHandler,removeJobPostingRequestAdminHandler,updateRequestToJobPostingHandler,getJobOffersAndApplicantsHandler,filterApplicantsHandler,getComplianceReportsHandler,getContractsHandler };
+module.exports = {
+    removeUserHandler,
+    getDashboardAdminHandler,
+    getJobPostingRequestAdminHandler,
+    removeJobPostingRequestAdminHandler,
+    updateRequestToJobPostingHandler,
+    getJobOffersAndApplicantsHandler,
+    filterApplicantsHandler,
+    getComplianceReportsHandler,
+    getContractsHandler,
+    getAllUsersHandler,
+    getUsersByTagHandler,
+  };
+  

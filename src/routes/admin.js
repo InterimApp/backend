@@ -1,6 +1,5 @@
 const express = require("express");
 const {
-    getUserHandler,
     removeUserHandler,
     getDashboardAdminHandler,
     getJobPostingRequestAdminHandler,
@@ -10,6 +9,8 @@ const {
     filterApplicantsHandler,
     getComplianceReportsHandler,  
     getContractsHandler,
+    getAllUsersHandler,
+    getUsersByTagHandler,
     uploadContractPerUserHandler,
     getPayslipsHandler
 } = require("../controllers/admin");
@@ -17,22 +18,20 @@ const {
 const router = express.Router();
 
 // Route for fetching users by name
+
+
+
 /**
  * @swagger
- * /api/admin/users:
+ * /api/admin/allUsers:
  *   get:
- *     summary: Retrieve a list of users or user data by name
- *     description: Fetches all users or data for a specific user based on the provided name.
- *     parameters:
- *       - in: query
- *         name: name
- *         required: false
- *         schema:
- *           type: string
- *         description: The name of the user to filter by. If not provided, fetches all users.
+ *     tags:
+ *       - Admin API
+ *     summary: Fetch all users (excluding admin)
+ *     description: Retrieves all users from the database, excluding those with the 'admin' role. It will return basic information for users based on their roles (e.g., candidates, interim collaborators, client companies).
  *     responses:
  *       200:
- *         description: A list of users or user details based on the name provided.
+ *         description: Successfully retrieved users
  *         content:
  *           application/json:
  *             schema:
@@ -42,65 +41,98 @@ const router = express.Router();
  *                 properties:
  *                   id:
  *                     type: integer
- *                     description: The unique ID of the user.
+ *                     example: 2
  *                   name:
  *                     type: string
- *                     description: The name of the user.
+ *                     example: "Alice Smith"
  *                   role:
  *                     type: string
- *                     description: The role of the user.
- *                   code_interimaire:
- *                     type: string
- *                     description: The interim code for interim collaborators.
- *                   academic_level:
- *                     type: string
- *                     description: The academic level of the user.
- *                   location:
- *                     type: string
- *                     description: The location of the user.
- *                   profession:
- *                     type: string
- *                     description: The profession of the user.
- *                   experience_years:
- *                     type: integer
- *                     description: The number of years of experience.
- *                   age:
- *                     type: integer
- *                     description: The age of the user.
- *                   gender:
- *                     type: string
- *                     description: The gender of the user.
- *                   company_name:
- *                     type: string
- *                     description: The company name (for client companies).
- *                   matricule_fiscale:
- *                     type: string
- *                     description: The fiscal registration number (for client companies).
- *                   industry:
- *                     type: string
- *                     description: The industry of the company (for client companies).
+ *                     example: "candidate"
+ *                   additional_data:
+ *                     type: object
+ *                     properties:
+ *                       code_interimaire:
+ *                         type: string
+ *                         example: "IC001"
+ *                       company_name:
+ *                         type: string
+ *                         example: "Tech Corp"
  *       400:
- *         description: Bad request due to missing or invalid parameters.
+ *         description: Bad request (e.g., database query error)
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 message:
+ *                 error:
  *                   type: string
- *                   description: A description of the error.
- *       404:
- *         description: No user found with the provided name.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   description: A description of the error.
+ *                   example: "Error fetching users"
  *       500:
- *         description: Internal server error.
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Error fetching users"
+ */
+router.get('/allUsers', getAllUsersHandler);
+
+/**
+ * @swagger
+ * /api/admin/userFetch:
+ *   get:
+ *     tags:
+ *       - Admin API
+ *     summary: Fetch users by a specific tag (e.g., role)
+ *     description: Retrieves users based on a specific tag or filter (e.g., users with a particular role like 'candidate', 'interim_collaborator', etc.).
+ *     parameters:
+ *       - name: tag
+ *         in: query
+ *         description: The tag or filter to apply (e.g., role of the user)
+ *         required: true
+ *         schema:
+ *           type: string
+ *           example: "candidate"
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved users by tag
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     example: 6
+ *                   name:
+ *                     type: string
+ *                     example: "Nada Arfaoui"
+ *                   role:
+ *                     type: string
+ *                     example: "candidate"
+ *                   additional_data:
+ *                     type: object
+ *                     properties:
+ *                       code_interimaire:
+ *                         type: string
+ *                         example: "IC002"
+ *       400:
+ *         description: Bad request (e.g., invalid tag)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Invalid tag provided"
+ *       404:
+ *         description: No users found for the provided tag
  *         content:
  *           application/json:
  *             schema:
@@ -108,18 +140,26 @@ const router = express.Router();
  *               properties:
  *                 message:
  *                   type: string
- *                   description: A description of the error.
+ *                   example: "No users found for this tag"
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Error fetching users by tag"
  */
-
-
-
-router.get("/users", getUserHandler); 
-
+router.get('/userFetch', getUsersByTagHandler);
 
 /**
  * @swagger
  * /api/admin/users/{name}:
  *   delete:
+ *     tags:
+ *       - Admin API
  *     summary: Delete a user by name
  *     description: Deletes a user from the `users` table along with related records in the `client_companies` and `interim_collaborators` tables.
  *     parameters:
@@ -171,6 +211,8 @@ router.delete("/users/:name", removeUserHandler);
  * @swagger
  * /api/admin/dashboard:
  *   get:
+ *     tags:
+ *       - Admin API
  *     summary: Get the Admin Dashboard data
  *     description: Returns the total number of registered companies, total interim workers, and total active missions.
  *     responses:
@@ -208,6 +250,8 @@ router.get("/dashboard", getDashboardAdminHandler);
  * @swagger
  * /api/admin/job-postings/requests:
  *   get:
+ *     tags:
+ *       - Admin API
  *     summary: Fetch job posting requests
  *     description: Returns a list of job posting requests with company information and job details.
  *     responses:
@@ -273,6 +317,8 @@ router.get("/job-postings/requests", getJobPostingRequestAdminHandler);
  * @swagger
  * /api/admin/job-postings/requests/{id}:
  *   delete:
+ *     tags:
+ *       - Admin API
  *     summary: Delete a recruitment request by ID
  *     description: Deletes a recruitment request from the `recruitment_requests` table based on the provided ID.
  *     parameters:
@@ -322,6 +368,8 @@ router.delete("/job-postings/requests/:id", removeJobPostingRequestAdminHandler)
  * @swagger
  * /api/admin/job-postings/requests/{id}:
  *   put:
+ *     tags:
+ *       - Admin API
  *     summary: Update a job posting request
  *     description: Updates a job posting request by changing its status or modifying details.
  *     parameters:
@@ -400,6 +448,8 @@ router.put("/job-postings/requests/:id", updateRequestToJobPostingHandler);
  * @swagger
  * /api/admin/job-offers/applicants:
  *   get:
+ *     tags:
+ *       - Admin API
  *     summary: Get job offers and their applicants
  *     description: Retrieves job offers along with the applicants who applied.
  *     responses:
@@ -464,6 +514,8 @@ router.get("/job-offers/applicants", getJobOffersAndApplicantsHandler);
  * @swagger
  * /applicants/filter:
  *   get:
+ *     tags:
+ *       - Admin API
  *     summary: Update applicant status based on action
  *     description: Updates the status of an applicant to either accepted or rejected based on the action sent from the front-end.
  *     parameters:
@@ -531,6 +583,8 @@ router.get("/applicants/filter", filterApplicantsHandler);
  * @swagger
  * /api/admin/compliance-reports:
  *   get:
+ *     tags:
+ *       - Admin API
  *     summary: Get all compliance reports
  *     description: Fetches all compliance reports stored in Firestore.
  *     responses:
@@ -581,8 +635,10 @@ router.get("/compliance-reports", getComplianceReportsHandler);
 
 /**
  * @swagger
- * /api/contracts:
+ * /api/admin/contracts:
  *   get:
+ *     tags:
+ *       - Admin API
  *     summary: Retrieve contracts for accepted job applications
  *     description: Fetches interim collaborator details, company details, and contract information for job applications that have been accepted.
  *     responses:

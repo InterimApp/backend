@@ -1,104 +1,144 @@
 const mySql = require("../../config/mySql");
 const db = require("../../config/firestore"); // Correct Firestore import
 
-const getUsers = async (name) => {
+
+
+
+
+const getAllUsersService = async () => {
     try {
-        let query;
-        let queryParams = [];  // Default to an empty array
-
-        if (!name) {
-            // If no name is provided, fetch all users
-            query = `
-                SELECT 
-                    u.id, 
-                    u.name, 
-                    u.role, 
-                    ic.code_interimaire, 
-                    ic.academic_level, 
-                    ic.location, 
-                    ic.profession, 
-                    ic.experience_years, 
-                    ic.age, 
-                    ic.gender
-                FROM interim_db.users u
-                JOIN interim_db.interim_collaborators ic ON u.id = ic.user_id
-            `;
-            const [rows] = await mySql.query(query); // Use destructuring to access only the rows
-            return rows; // Return only the rows (data)
-        } else {
-            // If name is provided, fetch user ID and role based on the name
-            const user = await getUserByName(name);
-            if (!user) {
-                throw new Error("No user found with the provided name.");
-            }
-
-            // Depending on the user's role, execute the appropriate query
-            if (user.role === 'client_company') {
-                const clientCompanyData = await getClientCompanyData(user.id);
-                return clientCompanyData; // Return only client company data
-            } else if (user.role === 'candidate' || user.role === 'interim_collaborator') {
-                const interimCollaboratorData = await getInterimCollaboratorData(user.id);
-                return interimCollaboratorData; // Return only interim collaborator data
-            } else {
-                throw new Error("Unsupported role.");
-            }
+      console.log("Starting getAllUsersService function.");
+  
+      const getUsersQuery = `
+        SELECT id, name, role
+        FROM interim_db.users
+        WHERE role != 'admin'
+      `;
+  
+      console.log("Executing query to fetch users:", getUsersQuery);
+  
+      const [users] = await mySql.query(getUsersQuery);
+  
+      if (!users || users.length === 0) {
+        console.log("No users found in the database.");
+        return [];
+      }
+      console.log("Users fetched successfully:", users);
+  
+      const results = [];
+  
+      for (const user of users) {
+        // Normalize the role to lowercase
+        const normalizedRole = user.role.toLowerCase();
+        console.log(`Processing user with ID: ${user.id}, Normalized Role: ${normalizedRole}`);
+  
+        if (normalizedRole === 'condidate' || normalizedRole === 'interim collaborator') {
+          const query = `
+            SELECT 
+              u.id, 
+              u.name, 
+              u.role, 
+              ic.code_interimaire, 
+              ic.academic_level, 
+              ic.location, 
+              ic.profession, 
+              ic.experience_years, 
+              ic.age, 
+              ic.gender
+            FROM interim_db.users u
+            JOIN interim_db.interim_collaborators ic ON u.id = ic.user_id
+            WHERE u.id = ?
+          `;
+          
+          console.log("Executing query for interim collaborator:", query);
+          
+          const [data] = await mySql.query(query, [user.id]);
+  
+          if (data && data.length > 0) {
+            console.log(`Data for interim collaborator ${user.id}:`, data[0]);
+            results.push(data[0]);
+          } else {
+            console.log(`No interim collaborator data found for user ID: ${user.id}`);
+          }
+  
+        } else if (normalizedRole === 'client company') {
+          const query = `
+            SELECT 
+              u.id,
+              u.role, 
+              cc.company_name, 
+              cc.matricule_fiscale, 
+              cc.industry
+            FROM interim_db.users u
+            JOIN interim_db.client_companies cc ON u.id = cc.user_id
+            WHERE u.id = ?
+          `;
+          
+          console.log("Executing query for client company:", query);
+          
+          const [data] = await mySql.query(query, [user.id]);
+  
+          if (data && data.length > 0) {
+            console.log(`Data for client company ${user.id}:`, data[0]);
+            results.push(data[0]);
+          } else {
+            console.log(`No client company data found for user ID: ${user.id}`);
+          }
         }
+      }
+  
+      console.log("Returning results:", results);
+      return results;
+  
     } catch (error) {
-        console.error("Error fetching users:", error);
-        throw error;
+      console.error("Error in getAllUsersService:", error);
+      throw error; // Re-throw the error after logging it
     }
-};
+  };
+  
+  
 
 
-// Helper function to fetch user ID and role by name
-const getUserByName = async (name) => {
+
+const getUsersByTagService = async (tag) => {
+  if (tag === "user") {
     const query = `
-        SELECT id, role 
-        FROM interim_db.users 
-        WHERE name LIKE ?
+      SELECT 
+        u.id, 
+        u.name, 
+        u.role, 
+        ic.code_interimaire, 
+        ic.academic_level, 
+        ic.location, 
+        ic.profession, 
+        ic.experience_years, 
+        ic.age, 
+        ic.gender
+      FROM interim_db.users u
+      JOIN interim_db.interim_collaborators ic ON u.id = ic.user_id
     `;
-    const [result] = await mySql.query(query, [`%${name}%`]);
-    return result[0]; // Assuming there is only one matching user, or you can handle multiple results as needed
-};
-
-// Helper function to fetch data for client companies
-const getClientCompanyData = async (userId) => {
+    const [users] = await mySql.query(query);
+    return users;
+  } else if (tag === "company") {
     const query = `
-        SELECT 
-            u.id, 
-            cc.company_name, 
-            cc.matricule_fiscale, 
-            cc.industry
-        FROM interim_db.users u
-        JOIN interim_db.client_companies cc ON u.id = cc.user_id
-        WHERE cc.user_id = ?
+      SELECT 
+        u.id, 
+        cc.company_name, 
+        cc.matricule_fiscale, 
+        cc.industry
+      FROM interim_db.users u
+      JOIN interim_db.client_companies cc ON u.id = cc.user_id
     `;
-    const [clientCompanyData] = await mySql.query(query, [userId]);
-    return clientCompanyData; // Only return the actual data
+    const [companies] = await mySql.query(query);
+    return companies;
+  }
 };
 
 
-// Helper function to fetch data for interim collaborators
-const getInterimCollaboratorData = async (userId) => {
-    const query = `
-        SELECT 
-            u.id, 
-            u.name, 
-            u.role, 
-            ic.code_interimaire, 
-            ic.academic_level, 
-            ic.location, 
-            ic.profession, 
-            ic.experience_years, 
-            ic.age, 
-            ic.gender
-        FROM interim_db.users u
-        JOIN interim_db.interim_collaborators ic ON u.id = ic.user_id
-        WHERE u.id = ?
-    `;
-    const [interimCollaboratorData] = await mySql.query(query, [userId]);
-    return interimCollaboratorData; // Only return the actual data
-};
+
+
+
+
 
 
 
@@ -367,6 +407,6 @@ const getAcceptedApplicationsQuery = `
 
 
 
-module.exports = { getUsers,deleteUser,getDashboardData, getRecruitmentRequests,
+module.exports = { deleteUser,getDashboardData, getRecruitmentRequests,
      deleteRecruitmentRequest,updateRecruitmentRequestStatus, insertJobOffer,fetchJobOffersAndApplicants,
-     updateApplicantStatus,getAcceptedContracts};
+     updateApplicantStatus,getAcceptedContracts,getAllUsersService,getUsersByTagService};

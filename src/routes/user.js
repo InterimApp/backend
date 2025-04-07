@@ -9,6 +9,8 @@ const router = express.Router();
  * @swagger
  * /api/users/createUsers:
  *   post:
+ *     tags:
+ *       - Users API
  *     summary: Create a new user (candidate or client company)
  *     description: This endpoint allows the creation of a new user. The user can be a candidate or a client company. 
  *     requestBody:
@@ -67,6 +69,8 @@ router.post("/createUsers", postUserHandler);
  * @swagger
  * /api/user/fetchJobs:
  *   get:
+ *     tags:
+ *       - Users API
  *     summary: Fetch job offers based on role and location
  *     description: This endpoint retrieves job offers based on the provided role and location. If no filters are provided, it returns all job offers.
  *     parameters:
