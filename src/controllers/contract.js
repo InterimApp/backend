@@ -1,23 +1,32 @@
 const contractQueries = require('../queries/contract');
-const { bucket } = require('../../config/firestore');
+const { bucket } = require('../../config/firebase');
 
 const getContractsByUser = async (req, res) => {
   try {
-    // Use req.user.id from mock middleware
-    const contracts = await contractQueries.getContractsByUser(req.user.id);
+    const userId = req.query.userId || 1; // Temporary default
     
+    // Add debug logging
+    console.log(`Fetching contracts for user ${userId}`);
+    const contracts = await contractQueries.getContractsByUser(userId);
+    console.log(`Found ${contracts.length} contracts`);
+    
+    if (contracts.length === 0) {
+      console.warn('No contracts found for user', userId);
+    }
+
     res.status(200).json({
       success: true,
       data: contracts
     });
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Contract fetch error:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to fetch contracts"
+      message: error.message || "Failed to fetch contracts"
     });
   }
 };
+
 const getContractDetails = async (req, res) => {
   try {
     const contract = await contractQueries.getContractDetails(req.params.id);
@@ -45,23 +54,30 @@ const getContractDetails = async (req, res) => {
 
 const signContract = async (req, res) => {
   try {
+    const { signatureUrl } = req.body;
+    const userId = req.query.userId || 1; // Default to user 1 for testing
+    
+    if (!signatureUrl) {
+      return res.status(400).json({
+        success: false,
+        message: "Signature URL is required"
+      });
+    }
+
     const success = await contractQueries.signContract(
       req.params.id, 
-      req.user.id
+      userId,
+      signatureUrl
     );
     
     if (!success) {
       return res.status(400).json({
         success: false,
-        message: "Contract could not be signed (may already be signed or doesn't exist)"
+        message: "Contract could not be signed"
       });
     }
 
-    // Get updated contract
-    const updatedContract = await contractQueries.getContractDetails(
-      req.params.id, 
-      req.user.id
-    );
+    const updatedContract = await contractQueries.getContractDetails(req.params.id);
     
     res.status(200).json({
       success: true,
@@ -74,7 +90,7 @@ const signContract = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to sign contract",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: error.message
     });
   }
 };

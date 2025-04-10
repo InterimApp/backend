@@ -2,8 +2,7 @@ const { postReport, getUserReports } = require("../queries/report");
 
 const postReportHandler = async (req, res) => {
   try {
-    console.log("Request body:", req.body); // Debug logging
-    
+    console.log("Request body:", req.body);
     const { submitted_by, submitted_to, subject, description } = req.body;
     
     if (!submitted_by || !submitted_to || !subject || !description) {
@@ -22,7 +21,8 @@ const postReportHandler = async (req, res) => {
         id: report.id,
         subject: report.subject,
         description: report.description,
-        created_at: report.date
+        created_at: report.date,
+        status: report.status
       }
     });
   } catch (error) {

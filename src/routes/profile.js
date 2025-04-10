@@ -4,7 +4,7 @@ const {
     getUserProfile, 
     updateUserProfile 
 } = require("../controllers/profile");
-const cvUpload = require("../../middlewares/cvUpload");
+const cvUpload = require("../middleware/upload");
 
 // Get user profile
 router.get("/:id", getUserProfile);

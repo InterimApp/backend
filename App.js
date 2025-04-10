@@ -6,6 +6,7 @@ const userRouter = require("./src/routes/profile");
 const contractRouter = require("./src/routes/contract");
 const reportRouter = require("./src/routes/report");
 const swaggerUI = require("swagger-ui-express");
+const dashboardRouter = require('./src/routes/dashboard');
 const swaggerSpec = require("./config/swagger");
 const cors = require("cors");
 
@@ -49,7 +50,7 @@ app.use("/api/user", userRouter);
 app.use("/api/contracts", contractRouter);
 app.use("/api/reports", reportRouter);
 app.use("/api/payslips", payslipRouter);
-
+app.use('/api/dashboard', dashboardRouter);
 // Health check endpoint
 app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "OK" });
@@ -80,3 +81,10 @@ app.listen(port, () => {
   console.log(`📄 API docs available at http://localhost:${port}/api/docs`);
   console.log(`📁 File uploads directory: ${uploadDir}`);
 });
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  optionsSuccessStatus: 200
+};
+
+
+app.use(cors(corsOptions));

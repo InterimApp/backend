@@ -14,7 +14,8 @@ const postReport = async (submitted_by, submitted_to, subject, description) => {
          id,
          subject,
          description,
-         DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as date
+         DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as date,
+         'Soumis' as status
        FROM compliance_reports WHERE id = ?`,
       [result.insertId]
     );
@@ -33,7 +34,8 @@ const getUserReports = async (userId) => {
          id,
          subject,
          description,
-         DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as date
+         DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as date,
+         'Soumis' as status
        FROM compliance_reports 
        WHERE submitted_by = ?
        ORDER BY created_at DESC`,
